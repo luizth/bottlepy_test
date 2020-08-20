@@ -1,70 +1,199 @@
-# Lib Imports
-from bottle import run, get, post, request, delete
-from json import dumps
-
-tasks = {
-    101: { "name": "Prova", "value": 6 },
-    202: { "name": "Pesquisa", "value": 2 },
-    303: { "name": "Trabalho", "value": 2 },
-    404: { "name": "Revisão", "value": 0 }
-}
-
-subject_tasks = {
-    1: [ { "task": 101, "date": 0 } ],
-    2: [ { "task": 101, "date": 0 }, { "task": 202, "date": 0 } ],
-    3: [ { "task": 303, "date": 0 } ]
-}
-
-subjects = {
-    1: { "name": "Calculo Diferencial", "weekday": "Quinta" },
-    2: { "name": "Analise de Dados", "weekday": "Segunda" },
-    3: { "name": "Sistemas Operacionais", "weekday": "Quarta" }
-}
+from bottle import run, request, route
+from src.server_response import *
+from src.dao import *
 
 
-# Subject Route Definitions
-@get("/api/subject")
-def get_subjects():
-    output = []
-    for key, value in subjects.items():
-        subject = { "id": key, "name": value["name"], "weekday": value["weekday"] }
-        output.append(subject)
-    return dumps(output)
+@route('/api/user', method='GET')
+def get_users():
+    users = load_users_json()
+    if not users:
+        return response_bad_request()
+
+    u_output = []
+    for key, value in users.items():
+        user = {
+            'id': key,
+            'name': value['name'],
+            'email': value['email'],
+            'permissions': value['permissions']
+        }
+        u_output.append(user)
+
+    return response_ok(u_output)
 
 
-@post("/api/subject")
-def add_subject():
-    body = request.json
-    _id = generate_subject_id()
-    subject = { "name": body["name"], "weekday": body["weekday"] }
-    subjects[_id] = subject
-    return dumps({ "id": _id })
+@route('/api/user/<_id>', method='GET')
+def get_user(_id):
+    users = load_users_json()
+    if not users:
+        return response_bad_request()
+    elif _id not in users:
+        return response_not_found()
+
+    u_output = {
+        'id': _id,
+        'name': users[_id]['name'],
+        'email': users[_id]['email'],
+        'permissions': users[_id]['permissions']
+    }
+
+    return response_ok(u_output)
 
 
-@get("/api/subject/<_id:int>")
-def get_subject(_id):
-    return dumps(subjects[_id])
+@route('/api/user', method='POST')
+def post_user():
+    user = load_user_create(request.json)
+    if not user:
+        return response_bad_request()
+
+    users = load_users_json()
+    if not users:
+        return response_bad_request()
+
+    u_id = generate_user_id()
+    if u_id == -1:
+        return response_bad_request()
+
+    users[u_id] = user
+
+    dump_users(users)
+    return response_ok({ 'id': u_id })
 
 
-@get("/api/subject/<_id:int>/task")
-def get_tasks(_id):
-    return dumps(subject_tasks[_id])
+@route('/api/user/<_id>', method='DELETE')
+def delete_user(_id):
+    users = load_users_json()
+    if not users:
+        return response_bad_request()
+    elif _id not in users:
+        return response_not_found()
+
+    del users[_id]
+
+    dump_users(users)
+    return response_ok({ 'id': _id })
 
 
-@post("/api/subject/<_id:int>/task")
-def add_task(_id):
-    body = request.json
-    subject_tasks[_id].append(body)
-    return subject_tasks
+@route('/api/user/<_id>', method='PATCH')
+def update_user(_id):
+    user = load_user_update(request.json)
+    if not user:
+        return response_bad_request()
+
+    users = load_users_json()
+    if not users:
+        return response_bad_request()
+    elif _id not in users:
+        return response_not_found()
+
+    u_update = users[_id]
+    for key in user:
+        u_update[key] = user[key]
+
+    users[_id].update(u_update)
+
+    dump_users(users)
+    return response_ok({ 'id': _id })
 
 
-# Functions
-def generate_subject_id():
-    return max(subjects.keys()) + 1
+@route('/api/user/<_id>/permissions', method='GET')
+def get_user_permissions(_id):
+    users = load_users_json()
+    if _id not in users:
+        return response_not_found()
+
+    permissions = load_permissions_json()
+    if not permissions:
+        return response_bad_request()
+
+    p_output = []
+    for p_id in users[_id]['permissions']:
+        str_p_id = str(p_id)
+
+        permission = {
+            'id': p_id,
+            'name': permissions[str_p_id]['name']
+        }
+        p_output.append(permission)
+
+    output = {
+        'id': _id,
+        'name': users[_id]['name'],
+        'permissions': p_output
+    }
+
+    return response_ok(output)
 
 
-def generate_task_id():
-    return max(tasks.keys()) + 101
+@route('/api/user/<_id>/permissions', method='PUT')
+def update_user_permissions(_id):
+    users = load_users_json()
+    if _id not in users:
+        return response_not_found()
+
+    update_list = load_permissions_update(request.json)
+    if not update_list:
+        return response_bad_request()
+
+    current_list = users[_id]['permissions']
+    new_current_list = list(set(current_list + update_list))
+    users[_id]['permissions'] = new_current_list
+
+    dump_users(users)
+    return response_ok({'id': _id})
 
 
-run(host="localhost", port=8080, reloader=True, debug=False)
+@route('/api/permissions', method='GET')
+def get_permissions():
+    permissions = load_permissions_json()
+
+    p_output = []
+    for key, value in permissions.items():
+        permission = {
+            'id': key,
+            'name': value['name'],
+            'description': value['description']
+        }
+        p_output.append(permission)
+
+    return response_ok(permission)
+
+
+@route('/api/permissions/<_id>', method='GET')
+def get_permission(_id):
+    permissions = load_permissions_json()
+    if not permissions:
+        return response_bad_request()
+    elif _id not in permissions:
+        return response_not_found()
+
+    p_output = {
+        'id': _id,
+        'name': permissions[_id]['name'],
+        'description': permissions[_id]['description']
+    }
+
+    return response_ok(p_output)
+
+
+@route('/api/permissions', method='POST')
+def post_permission():
+    permission = load_permission_create(request.json)
+    if not permission:
+        return response_bad_request()
+
+    permissions = load_permissions_json()
+    if not permissions:
+        return response_bad_request()
+
+    p_id = generate_permission_id()
+    if p_id == -1:
+        return response_bad_request()
+
+    permissions[p_id] = permission
+
+    dump_permissions(permissions)
+    return response_ok({ 'id': p_id })
+
+
+run(host='localhost', port=8080, reloader=True, debug=True)

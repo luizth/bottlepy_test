@@ -1,4 +1,46 @@
-GET http://localhost:8080/api/subject
+GET http://localhost:8080/api/permissions
+Accept: application/json
+
+###
+PUT http://localhost:8080/api/user/1/permissions
+Content-Type: application/json
+
+{
+  "permissions": [ 2, 6 ]
+}
+
+###
+GET http://localhost:8080/api/user/1/permissions
+Accept: application/json
+
+###
+PUT http://localhost:8080/api/user/1
+Content-Type: application/json
+
+{
+  "email": "luiz.thomasini@guiainvest.com.br"
+}
+
+###
+DELETE http://localhost:8080/api/user/5
+Accept: application/json
+
+###
+GET http://localhost:8080/api/user/1
+Accept: application/json
+
+###
+POST http://localhost:8080/api/user
+Content-Type: application/json
+
+{
+  "name": "Segunda",
+  "email": "segunda@email.com",
+  "hot": "dog"
+}
+
+###
+GET http://localhost:8080/api/user
 Accept: application/json
 
 ###

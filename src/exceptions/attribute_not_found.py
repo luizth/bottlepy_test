@@ -1,0 +1,2 @@
+class AttributeNotFound(Exception):
+    pass

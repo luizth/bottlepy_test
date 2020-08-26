@@ -1,0 +1,2 @@
+class NotAListError(Exception):
+    pass

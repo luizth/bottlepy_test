@@ -24,3 +24,7 @@ def response_bad_request():
 
 def response_not_found():
     return response_status(404)
+
+
+def response_internal_server_error():
+    return response_status(500)

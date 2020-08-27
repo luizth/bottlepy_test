@@ -2,18 +2,23 @@ from typing import List
 
 from bottle import request
 
-from src.application import user_manager
-from src.controllers import permission_controller
+from src.application import user_manager, permission_manager
 from src.exceptions.attribute_not_found import AttributeNotFound
+from src.exceptions.invalid_email_address import InvalidEmailAddress
+from src.exceptions.invalid_permission_id import InvalidPermissionId
 from src.exceptions.not_a_list import NotAListError
 from src.model.permission import Permission
 from src.model.user import User
 from src.utils.http_utils import response_bad_request, response_ok, response_not_found, response_internal_server_error
-from src.utils.validation_utils import require_attrs, require_dict, require_attr, require_list
+from src.utils.json_utils import instance_to_dict
+from src.utils.validation_utils import require_attrs, require_dict, require_attr, require_list, require_email
 
 
 def get_many():
-    return response_ok(user_manager.get_many())
+    users: List[User] = user_manager.get_many()
+    output: List[dict] = [instance_to_dict(user) for user in users]
+
+    return response_ok(output)
 
 
 def get_one(_id):
@@ -22,7 +27,8 @@ def get_one(_id):
     if user is None:
         return response_not_found()
 
-    return response_ok(user)
+    output: dict = instance_to_dict(user)
+    return response_ok(output)
 
 
 def insert():
@@ -33,22 +39,22 @@ def insert():
         user = __create_user(data)
         _id = user_manager.insert(user)
         return response_ok({ 'id': _id })
-    except (NotADirectoryError, AttributeNotFound):
+    except (NotADirectoryError, AttributeNotFound, InvalidEmailAddress):
         return response_bad_request()
     except Exception:
         return response_internal_server_error()
 
 
 def remove(_id):
-    _id = user_manager.remove(_id)
+    deleted_id = user_manager.remove(_id)
 
-    if _id is None:
+    if deleted_id is None:
         return response_bad_request()
 
-    return response_ok({ 'id': _id })
+    return response_ok({ 'id': deleted_id })
 
 
-def update_one(_id):
+def update(_id):
     user: User = user_manager.get_one(_id)
 
     if user is None:
@@ -59,7 +65,7 @@ def update_one(_id):
     try:
         require_dict(data)
         user = __update_user(user, data)
-        user_id = user_manager.update_one(_id, user)
+        user_id = user_manager.update(_id, user)
         return response_ok({ 'id': user_id })
     except (NotADirectoryError, AttributeNotFound):
         return response_bad_request()
@@ -75,7 +81,8 @@ def get_permissions(_id):
 
     permission_list: List[Permission] = []
     for permission_id in permissions:
-        permission_list.append(permission_controller.get_one(permission_id))
+        permission = permission_manager.get_one( str(permission_id) )
+        permission_list.append(instance_to_dict(permission))
 
     return response_ok({ 'id': _id, 'permissions': permission_list })
 
@@ -90,11 +97,10 @@ def update_permissions(_id):
 
     try:
         require_dict(data)
-        permission_update = __get_permissions(data)
-        permission_update = list( set( permissions + permission_update ))
-        user_manager.update_permissions(_id, permission_update)
+        permissions = __validate_permissions(data)
+        user_manager.update_permissions(_id, permissions)
         return response_ok({ 'id': _id })
-    except (NotADirectoryError, AttributeNotFound, NotAListError):
+    except (NotADirectoryError, AttributeNotFound, NotAListError, InvalidPermissionId):
         return response_bad_request()
     except Exception:
         return response_internal_server_error()
@@ -102,6 +108,8 @@ def update_permissions(_id):
 
 def __create_user(data: dict) -> User:
     require_attrs(['name', 'email'], data)
+    require_email(data['email'])
+
     name: str = data['name']
     email: str = data['email']
 
@@ -110,6 +118,8 @@ def __create_user(data: dict) -> User:
 
 def __update_user(user: User, data: dict) -> User:
     require_attrs(['name', 'email'], data)
+    require_email(data['email'])
+
     name: str = data['name']
     email: str = data['email']
 
@@ -119,12 +129,12 @@ def __update_user(user: User, data: dict) -> User:
     return user
 
 
-def __get_permissions(data: dict) -> List[int]:
+def __validate_permissions(data: dict) -> List[int]:
     require_attr('permissions', data)
     require_list(data['permissions'])
 
-    permissions: List[int] = []
-    for key in data['permissions']:
-        permissions.append(permission_controller.get_one(key))
+    for _id in data['permissions']:
+        if not permission_manager.get_one( str(_id) ):
+            raise InvalidPermissionId
 
-    return permissions
+    return data['permissions']

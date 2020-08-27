@@ -1,6 +1,8 @@
 from typing import List
+import re
 
 from src.exceptions.attribute_not_found import AttributeNotFound
+from src.exceptions.invalid_email_address import InvalidEmailAddress
 from src.exceptions.not_a_list import NotAListError
 
 
@@ -19,10 +21,13 @@ def require_dict(obj: dict) -> None:
         raise NotADirectoryError
 
 
-def require_list(obj: list):
+def require_list(obj: list) -> None:
     if not isinstance(obj, list):
         raise NotAListError
 
 
-def require_email(email: str, obj: dict):
-    pass
+def require_email(email: str) -> None:
+    regex = '^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$'
+
+    if not re.search(regex, email):
+        raise InvalidEmailAddress

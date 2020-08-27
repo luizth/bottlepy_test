@@ -5,22 +5,27 @@ from src.controllers import permission_controller, user_controller
 
 # Permissions
 # -----------------------------------------------------------------------------
-@route('/api/permissions', method='GET')
+@route('/api/permission', method='GET')
 def get_permissions():
     return permission_controller.get_many()
 
 
-@route('/api/permissions/<_id>', method='GET')
+@route('/api/permission/<_id>', method='GET')
 def get_permission(_id):
     return permission_controller.get_one(_id)
 
 
-@route('/api/permissions', method='POST')
+@route('/api/permission', method='POST')
 def post_permission():
     return permission_controller.insert()
 
 
-@route('/api/permissions/<_id>', method='PATCH')
+@route('/api/permission/<_id>', method='DELETE')
+def delete_permission(_id):
+    return permission_controller.remove(_id)
+
+
+@route('/api/permission/<_id>', method='PATCH')
 def patch_permission(_id):
     return permission_controller.update(_id)
 
@@ -49,7 +54,7 @@ def delete_user(_id):
 
 @route('/api/user/<_id>', method='PATCH')
 def patch_user(_id):
-    return user_controller.update_one(_id)
+    return user_controller.update(_id)
 
 
 @route('/api/user/<_id>/permissions', method='GET')

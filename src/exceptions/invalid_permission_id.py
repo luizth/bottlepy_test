@@ -1,0 +1,2 @@
+class InvalidPermissionId(Exception):
+    pass
